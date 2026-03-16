@@ -1105,9 +1105,9 @@ function foundEmpire(){
     turn:1,
     year:1,
     maxTurns:1000,
-    poder:Math.round(25+hab*.25),
-    estabilidad:Math.round(35+hab*.2),
-    tecnologia:5,
+    poder:Math.round(50+hab*.5),
+    estabilidad:Math.round(60+hab*.4),
+    tecnologia:10,
     poblacion:Math.round(1+hab*.03),
     territorio:1,
     civTraits:[],          // rasgos de civilización acumulados
@@ -1128,6 +1128,7 @@ function foundEmpire(){
   document.getElementById('config-phase').style.display='none';
   document.getElementById('game-phase').style.display='block';
   document.getElementById('final-screen').style.display='none';
+  const achFloat=document.getElementById('achievements-float');if(achFloat)achFloat.style.display='block';
 
   buildAccordion();
   renderHUD();
@@ -1254,9 +1255,9 @@ function checkObjectives(gs){
       obj.done=true;
       // Apply reward
       const rv=obj.reward;
-      if(rv.includes('Estabilidad'))gs.estabilidad=Math.min(100,gs.estabilidad+parseInt(rv.match(/Estabilidad \+(\d+)/)?.[1]||0));
-      if(rv.includes('Poder'))gs.poder=Math.min(100,gs.poder+parseInt(rv.match(/Poder \+(\d+)/)?.[1]||0));
-      if(rv.includes('Tecnología'))gs.tecnologia=Math.min(100,gs.tecnologia+parseInt(rv.match(/Tecnología \+(\d+)/)?.[1]||0));
+      if(rv.includes('Estabilidad'))gs.estabilidad=Math.min(500,gs.estabilidad+parseInt(rv.match(/Estabilidad \+(\d+)/)?.[1]||0));
+      if(rv.includes('Poder'))gs.poder=Math.min(500,gs.poder+parseInt(rv.match(/Poder \+(\d+)/)?.[1]||0));
+      if(rv.includes('Tecnología'))gs.tecnologia=Math.min(500,gs.tecnologia+parseInt(rv.match(/Tecnología \+(\d+)/)?.[1]||0));
       if(rv.includes('Territorio'))gs.territorio=gs.territorio+parseInt(rv.match(/Territorio \+(\d+)/)?.[1]||0);
       addLog(gs.year,`🎯 Objetivo cumplido: "${obj.text}" → Recompensa: ${rv}`);
       gs.chronicle.push({year:gs.year,text:`🎯 ${obj.text}`});
@@ -1292,7 +1293,7 @@ function checkCollapse(gs){
   } else {
     gs._crisisEstab=0;
   }
-  if(gs.poder<=2){
+  if(gs.poder<=10){
     return{reason:'poder',title:'EL IMPERIO SE RINDE',sub:'La hegemonía ha llegado a su fin',text:`El poder imperial de ${gs.name} ha caído a niveles que hacen imposible la gobernanza. Las facciones internas se reparten los restos. El nombre del Imperio persistirá en los registros históricos, pero la entidad que lo sustentaba ha dejado de existir.`};
   }
   if(gs.poblacion<=0){
@@ -1419,7 +1420,7 @@ function selectInvestment(area){
   const gain=vals[areaIndex];
 
   // Aplicar ganancia en el área elegida
-  GS[area]=Math.min(100,GS[area]+gain);
+  GS[area]=Math.min(500,GS[area]+gain);
 
   // Decaimiento en las otras dos
   INVEST_AREAS.forEach((a,i)=>{
@@ -1716,14 +1717,14 @@ function chooseDecision(decisionIndex){
   GS.year=(GS.turn-1)*5+1;
 
   // Crecimiento orgánico
-  GS.poblacion=Math.max(0,GS.poblacion+Math.round((GS.estabilidad/100)*(GS.tecnologia/30)*0.3));
-  GS.estabilidad=Math.max(0,Math.min(100,GS.estabilidad-1+Math.round(GS.poder/60)));
+  GS.poblacion=Math.max(0,GS.poblacion+Math.round((GS.estabilidad/500)*(GS.tecnologia/150)*0.3));
+  GS.estabilidad=Math.max(0,Math.min(500,GS.estabilidad-1+Math.round(GS.poder/60)));
 
   // Avance evolutivo con fanfarria
   const prevStage=GS.evoStageIndex;
   for(let i=GS.evoLine.length-1;i>GS.evoStageIndex;i--){
     const threshold=(GS._quickMode?EVO_THRESHOLDS_QUICK:EVO_THRESHOLDS)[i]||9999;
-    const bonus=GS.poder>60&&GS.tecnologia>50?25:GS.poder>40?12:0;
+    const bonus=GS.poder>300&&GS.tecnologia>250?25:GS.poder>200?12:0;
     if(GS.turn>=threshold-bonus){GS.evoStageIndex=i;break}
   }
   if(GS.evoStageIndex>prevStage){
@@ -1780,11 +1781,19 @@ function chooseDecision(decisionIndex){
 }
 
 function applyEffects(fx){
-  if(fx.poder)     GS.poder     =Math.max(0,Math.min(100,GS.poder+fx.poder));
-  if(fx.estabilidad)GS.estabilidad=Math.max(0,Math.min(100,GS.estabilidad+fx.estabilidad));
-  if(fx.tecnologia) GS.tecnologia =Math.max(0,Math.min(100,GS.tecnologia+fx.tecnologia));
+  if(fx.poder)     GS.poder     =Math.max(0,Math.min(500,GS.poder+fx.poder));
+  if(fx.estabilidad)GS.estabilidad=Math.max(0,Math.min(500,GS.estabilidad+fx.estabilidad));
+  if(fx.tecnologia) GS.tecnologia =Math.max(0,Math.min(500,GS.tecnologia+fx.tecnologia));
   if(fx.poblacion)  GS.poblacion  =Math.max(0,GS.poblacion+fx.poblacion);
-  if(fx.territorio) GS.territorio =Math.max(1,GS.territorio+(fx.territorio||0));
+  if(fx.territorio){
+    const spaceEras=['orbital','sistema','interestelar','galactico','trascendente'];
+    const curEra=GS.evoLine[GS.evoStageIndex];
+    if(spaceEras.includes(curEra)){
+      GS.territorio=Math.max(1,GS.territorio+(fx.territorio||0));
+    } else if(fx.territorio>0){
+      addLog(GS.year,'🌍 Expansión espacial bloqueada: aún no hemos alcanzado la era orbital.');
+    }
+  }
 }
 
 function addLog(year,text){
@@ -1810,10 +1819,10 @@ function renderHUD(){
     const bar=document.getElementById(barId);
     const card=el?.closest('.hud-card');
     el.textContent=val;
-    if(bar)bar.style.width=Math.max(0,Math.min(100,val))+'%';
+    if(bar)bar.style.width=Math.max(0,Math.min(100,val/5))+'%';
     if(card){
-      card.classList.toggle('crisis',val<=20);
-      el.classList.toggle('danger',val<=15);
+      card.classList.toggle('crisis',val<=100);
+      el.classList.toggle('danger',val<=75);
     }
   };
   setHudVal('hud-poder','bar-poder',GS.poder);
@@ -1916,12 +1925,12 @@ function showFinalJudgment(){
   document.getElementById('game-phase').style.display='none';
   const fs=document.getElementById('final-screen');fs.style.display='block';
   let v;
-  if(GS.poder>=85&&GS.territorio>=5)         v={icon:'🌌',name:'LEGENDARIO',sub:'Tu Imperio trascendió los límites del cosmos conocido.',color:'#a8ff5a'};
-  else if(GS.tecnologia>=80&&GS.poder>=60)    v={icon:'✨',name:'TRASCENDENTE',sub:'La ciencia elevó a tu especie más allá de lo biológico.',color:'#5ef5c0'};
-  else if(GS.poder>=65&&GS.estabilidad>=60)   v={icon:'⭐',name:'GLORIOSO',sub:'Un Imperio que brillará en los anales galácticos.',color:'#e8c44a'};
-  else if(GS.estabilidad>=70&&GS.poder>=40)   v={icon:'🏛️',name:'ESTABLECIDO',sub:'Una civilización sólida que perduró en el tiempo.',color:'#7fff3a'};
-  else if(GS.estabilidad<20||GS.poder<10)     v={icon:'💀',name:'COLAPSADO',sub:'El Imperio no pudo sobrevivir a sus propias contradicciones.',color:'#ff4d3a'};
-  else if(GS.tecnologia<20)                    v={icon:'🌑',name:'ESTANCADO',sub:'Sobrevivió pero nunca alcanzó su potencial.',color:'#556030'};
+  if(GS.poder>=425&&GS.territorio>=5)         v={icon:'🌌',name:'LEGENDARIO',sub:'Tu Imperio trascendió los límites del cosmos conocido.',color:'#a8ff5a'};
+  else if(GS.tecnologia>=400&&GS.poder>=300)    v={icon:'✨',name:'TRASCENDENTE',sub:'La ciencia elevó a tu especie más allá de lo biológico.',color:'#5ef5c0'};
+  else if(GS.poder>=325&&GS.estabilidad>=300)   v={icon:'⭐',name:'GLORIOSO',sub:'Un Imperio que brillará en los anales galácticos.',color:'#e8c44a'};
+  else if(GS.estabilidad>=200&&GS.poder>=150)   v={icon:'🏛️',name:'ESTABLECIDO',sub:'Una civilización sólida que perduró en el tiempo.',color:'#7fff3a'};
+  else if(GS.estabilidad<50||GS.poder<25)     v={icon:'💀',name:'COLAPSADO',sub:'El Imperio no pudo sobrevivir a sus propias contradicciones.',color:'#ff4d3a'};
+  else if(GS.tecnologia<50)                    v={icon:'🌑',name:'ESTANCADO',sub:'Sobrevivió pero nunca alcanzó su potencial.',color:'#556030'};
   else                                          v={icon:'🌿',name:'RESILIENTE',sub:'Modesto pero indestructible. 5000 años de historia.',color:'#7fff3a'};
   document.getElementById('final-icon').textContent=v.icon;
   document.getElementById('final-name').textContent=v.name;
@@ -2231,6 +2240,7 @@ function resetGame(){
   document.getElementById('config-phase').style.display='block';
   document.getElementById('game-phase').style.display='none';
   document.getElementById('final-screen').style.display='none';
+  const achFloat2=document.getElementById('achievements-float');if(achFloat2)achFloat2.style.display='none';
   document.getElementById('collapse-screen').classList.remove('show');
   document.getElementById('milestone-overlay').classList.remove('show');
   document.getElementById('era-transition').classList.remove('show');
@@ -2280,7 +2290,7 @@ function tickGalaxyCivs(gs){
     civ.population+=Math.floor(Math.random()*3);
     if(civ.temperament==='expansionista') civ.militaryPower=Math.min(100,civ.militaryPower+0.2);
     // Trade bonus if allied
-    if(civ.relation==='aliada'&&Math.random()<0.3) gs.tecnologia=Math.min(100,gs.tecnologia+1);
+    if(civ.relation==='aliada'&&Math.random()<0.3) gs.tecnologia=Math.min(500,gs.tecnologia+1);
     // War attrition
     if(civ.relation==='guerra'&&Math.random()<0.2){
       gs.poder=Math.max(0,gs.poder-1);
@@ -2470,8 +2480,8 @@ function tickPressures(gs){
   // Natural decay
   Object.keys(hp).forEach(k=>hp[k]=Math.max(0,hp[k]-0.3));
   // Accumulate from game state
-  if(gs.poder>70) addPressure(gs,'militarism',0.5);
-  if(gs.tecnologia>60) addPressure(gs,'techRunaway',0.3);
+  if(gs.poder>350) addPressure(gs,'militarism',0.5);
+  if(gs.tecnologia>300) addPressure(gs,'techRunaway',0.3);
   if(gs.evoStageIndex>=5) addPressure(gs,'cosmicExposure',0.4);
   if(gs.socialClasses){
     const sc=gs.socialClasses;
@@ -2501,7 +2511,7 @@ function checkPressureThresholds(gs){
     gs._megaEventCooldown=gs._megaEventCooldown||{};
     gs._megaEventCooldown.religion=gs.turn+50;
   }
-  if(hp.classConflict>=80&&gs.estabilidad<40&&!gs._megaEventCooldown?.classConflict){
+  if(hp.classConflict>=80&&gs.estabilidad<200&&!gs._megaEventCooldown?.classConflict){
     triggerMegaEvent(gs,'guerra_civil');
     gs._megaEventCooldown=gs._megaEventCooldown||{};
     gs._megaEventCooldown.classConflict=gs.turn+80;
@@ -2558,13 +2568,13 @@ const MEGA_EVENTS={
   tecnologia_alienigena:{
     icon:'🛸',title:'Tecnología Alienígena',
     desc:gs=>`Una sonda alienígena con tecnología incomprensible aterriza en ${gs.name}. Su análisis podría cambiar el curso de la civilización.`,
-    effects:gs=>{gs.tecnologia=Math.min(100,gs.tecnologia+20);},
+    effects:gs=>{gs.tecnologia=Math.min(500,gs.tecnologia+20);},
     trait:{id:'cientifica',label:'🔬 Científica'}, addPressure:null, minTurn:200,
   },
   invasion_alienigena:{
     icon:'👾',title:'Invasión Extraterrestre',
     desc:gs=>`Una flota alienígena de proporciones desconocidas aparece en el sistema de ${gs.name}. La mayor amenaza de su historia ha llegado.`,
-    effects:gs=>{gs.poder=Math.min(100,gs.poder+15);gs.estabilidad=Math.max(0,gs.estabilidad-20);gs.poblacion=Math.max(1,Math.round(gs.poblacion*0.85));},
+    effects:gs=>{gs.poder=Math.min(500,gs.poder+15);gs.estabilidad=Math.max(0,gs.estabilidad-20);gs.poblacion=Math.max(1,Math.round(gs.poblacion*0.85));},
     trait:{id:'belicosa',label:'⚔️ Belicosa'}, addPressure:null, minTurn:300,
   },
 };
@@ -2795,9 +2805,9 @@ function startQuickGame(){
     maxTurns:200,
     _quickMode:true,
     // Stats iniciales más altos para partida más intensa
-    poder:Math.round(35+hab*.3),
-    estabilidad:Math.round(45+hab*.25),
-    tecnologia:10,
+    poder:Math.round(70+hab*.6),
+    estabilidad:Math.round(80+hab*.5),
+    tecnologia:20,
     poblacion:Math.round(2+hab*.04),
     territorio:1,
     civTraits:[],
@@ -3051,13 +3061,13 @@ function checkAchievements(gs){
   // Mil años de gloria
   if(gs.turn>=1000&&gs.poder>80) unlockAchievement('glory_1000');
   // Tech 90
-  if(gs.tecnologia>=90) unlockAchievement('tech_90');
+  if(gs.tecnologia>=450) unlockAchievement('tech_90');
   // Pop 500
   if(gs.poblacion>=500) unlockAchievement('pop_500');
   // Territorio 5
   if(gs.territorio>=5) unlockAchievement('ter_5');
   // Estabilidad 90
-  if(gs.estabilidad>=90) unlockAchievement('stability_90');
+  if(gs.estabilidad>=450) unlockAchievement('stability_90');
   // 8 rasgos
   if(gs.civTraits.length>=8) unlockAchievement('all_traits');
   // Interestelar rápido
@@ -3626,10 +3636,10 @@ function applyBranchEffects(gs){
   if(!gs.branchChoices)return;
   const bc=gs.branchChoices;
   if(bc.nacion==='democracia') gs.estabilidad=Math.min(bc.nacion==='democracia'?120:100,gs.estabilidad+0.3);
-  if(bc.nacion==='autocracia') gs.poder=Math.min(100,gs.poder+0.5);
-  if(bc.industrial==='capitalismo') gs.tecnologia=Math.min(100,gs.tecnologia+0.2);
+  if(bc.nacion==='autocracia') gs.poder=Math.min(500,gs.poder+0.5);
+  if(bc.industrial==='capitalismo') gs.tecnologia=Math.min(500,gs.tecnologia+0.2);
   if(bc.industrial==='planificacion') gs.poblacion=Math.max(0,gs.poblacion+Math.floor(gs.poblacion*0.0015));
-  if(bc.planetario==='transhumanismo') gs.tecnologia=Math.min(120,gs.tecnologia+0.3);
+  if(bc.planetario==='transhumanismo') gs.tecnologia=Math.min(500,gs.tecnologia+0.3);
 }
 
 function renderBranchBadges(){

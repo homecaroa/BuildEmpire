@@ -506,6 +506,11 @@
 <script src="script.js"></script>
 
 
+<!-- BOTÓN LOGROS FLOTANTE -->
+<div id="achievements-float" style="position:fixed;bottom:16px;right:16px;z-index:500;display:none">
+  <button onclick="showAchievementsScreen()" style="background:var(--panel);border:1px solid var(--amber);border-radius:20px;padding:8px 14px;font-family:Orbitron,sans-serif;font-size:10px;letter-spacing:1px;color:var(--amber);cursor:pointer;box-shadow:0 0 12px rgba(232,196,74,.2)">🏆 Logros</button>
+</div>
+
 <!-- BOTÓN MÚSICA -->
 <div id="music-controls" style="position:fixed;bottom:16px;left:16px;z-index:500;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:6px 12px;opacity:0.75;transition:opacity .2s" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.75'">
   <button id="music-btn" onclick="window._music&&window._music.toggle()" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:0;color:var(--green)">🔇</button>
