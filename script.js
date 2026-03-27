@@ -1046,14 +1046,15 @@ function getEventForTurn(gs){
     if(!ev.epoch.some(e=>validEpochs.includes(e)))return false;
     // No debe estar bloqueado
     if(gs.blockedEvents.has(ev.id))return false;
-    // No repetir en los últimos 5 turnos
+    // No repetir en los últimos 12 turnos
     if(gs.recentEvents.includes(ev.id))return false;
     return true;
   });
 
   // Si el pool está vacío, usamos todos los de la época sin restricción de recientes
   if(pool.length===0){
-    pool=EVENT_CATALOG.filter(ev=>ev.epoch.some(e=>validEpochs.includes(e))&&!gs.blockedEvents.has(ev.id));
+    // Fallback: allow repeats from after last 6 events only
+    pool=EVENT_CATALOG.filter(ev=>!ev.condition&&ev.epoch.some(e=>validEpochs.includes(e))&&!gs.blockedEvents.has(ev.id)&&!gs.recentEvents.slice(0,6).includes(ev.id));
   }
   // Si sigue vacío, cualquier evento
   if(pool.length===0)pool=EVENT_CATALOG.filter(ev=>!gs.blockedEvents.has(ev.id));
@@ -1384,7 +1385,8 @@ function getInvestValue(gs){
 
 // Decaimiento pasivo en áreas NO elegidas
 function getDecayCost(gs){
-  return gs.evoStageIndex>=5 ? 2 : 1;
+  const stage=gs.evoStageIndex;
+  return Math.min(20,8+Math.floor(stage*1.2));
 }
 
 const INVEST_AREAS=[
@@ -1397,6 +1399,8 @@ function selectInvestment(area){
   if(!GS)return;
   const vals=getInvestValue(GS);
   const decay=getDecayCost(GS);
+  // Extra pressure: not investing costs more than base decay
+  // (already handled by getDecayCost, but we want to show it clearly)
   const areaIndex=INVEST_AREAS.findIndex(a=>a.key===area);
   const gain=vals[areaIndex];
 
@@ -1692,7 +1696,7 @@ function chooseDecision(decisionIndex){
   addTimelineNode(ev.icon, ev.type, `Año ${GS.year}: ${ev.title} → ${dec.title}`);
 
   GS.recentEvents.unshift(ev.id);
-  if(GS.recentEvents.length>5)GS.recentEvents.pop();
+  if(GS.recentEvents.length>12)GS.recentEvents.pop();
 
   // Avanzar turno
   GS.turn++;
@@ -1700,8 +1704,12 @@ function chooseDecision(decisionIndex){
 
   // Crecimiento orgánico
   GS.poblacion=Math.max(0,GS.poblacion+Math.round((GS.estabilidad/500)*(GS.tecnologia/150)*0.3));
-  GS.poder=Math.max(0,Math.min(500,GS.poder-3));
-  GS.estabilidad=Math.max(0,Math.min(500,GS.estabilidad-3));
+  // Decay scales with era: harder to maintain stats as civilization grows
+  const _eraDecay=Math.min(12, 5+Math.floor(GS.evoStageIndex*0.9));
+  GS.poder=Math.max(0,Math.min(500,GS.poder-_eraDecay));
+  GS.estabilidad=Math.max(0,Math.min(500,GS.estabilidad-Math.round(_eraDecay*0.9)));
+  // Technology decays slower but still decays
+  GS.tecnologia=Math.max(0,Math.min(500,GS.tecnologia-Math.round(_eraDecay*0.4)));
 
   // Avance evolutivo con fanfarria
   const prevStage=GS.evoStageIndex;
@@ -1776,10 +1784,33 @@ function applyEffects(fx){
       if(fx[k]<0)fx[k]=Math.round(fx[k]*(1-r));
     });
   }
-  if(fx.poder)     GS.poder     =Math.max(0,Math.min(500,GS.poder+fx.poder));
-  if(fx.estabilidad)GS.estabilidad=Math.max(0,Math.min(500,GS.estabilidad+fx.estabilidad));
-  if(fx.tecnologia) GS.tecnologia =Math.max(0,Math.min(500,GS.tecnologia+fx.tecnologia));
-  if(fx.poblacion)  GS.poblacion  =Math.max(0,GS.poblacion+fx.poblacion);
+  // Global entropy: the further you advance, the more the world resists
+  // Every stat that gains also costs another stat slightly
+  const turn=GS?GS.turn:0;
+  const entropy=Math.min(0.55, turn*0.004); // 0% at start, 55% at turn 137
+  const fxCopy=Object.assign({},fx);
+  if(entropy>0&&GS){
+    // For each positive effect, apply a small penalty to the LEAST-boosted stat
+    const stats=['poder','estabilidad','tecnologia'];
+    const totalGain=stats.reduce(function(a,k){return a+(fxCopy[k]>0?fxCopy[k]:0);},0);
+    if(totalGain>0){
+      const penalty=-Math.round(totalGain*entropy);
+      // Apply penalty to the stat not being boosted most
+      const boosted=stats.filter(function(k){return (fxCopy[k]||0)>0;});
+      const notBoosted=stats.filter(function(k){return !(fxCopy[k]>0);});
+      const target=notBoosted.length>0?notBoosted[Math.floor(Math.random()*notBoosted.length)]:boosted[boosted.length-1];
+      fxCopy[target]=(fxCopy[target]||0)+penalty;
+    }
+  }
+  // Scale down positive effects by era (harder to gain as you grow)
+  const _eraScale=Math.max(0.6, 1-GS.evoStageIndex*0.04);
+  ['poder','estabilidad','tecnologia'].forEach(function(k){
+    if(fxCopy[k]>0) fxCopy[k]=Math.round(fxCopy[k]*_eraScale);
+  });
+  if(fxCopy.poder)     GS.poder     =Math.max(0,Math.min(500,GS.poder+fxCopy.poder));
+  if(fxCopy.estabilidad)GS.estabilidad=Math.max(0,Math.min(500,GS.estabilidad+fxCopy.estabilidad));
+  if(fxCopy.tecnologia) GS.tecnologia =Math.max(0,Math.min(500,GS.tecnologia+fxCopy.tecnologia));
+  if(fxCopy.poblacion)  GS.poblacion  =Math.max(0,GS.poblacion+(fxCopy.poblacion||0));
   if(fx.territorio){
     const spaceEras=['orbital','sistema','interestelar','galactico','trascendente'];
     const curEra=GS.evoLine[GS.evoStageIndex];
@@ -1907,7 +1938,11 @@ function renderTurnPanel(){
         const tags=Object.entries(fx).map(([k,v])=>{
           if(v===0)return'';
           const lab={poder:'Poder',estabilidad:'Estabilidad',tecnologia:'Tecnología',poblacion:'Población',territorio:'Territorio'}[k]||k;
-          return`<span class="effect-tag ${v>0?'effect-pos':'effect-neg'}">${lab} ${v>0?'+':''}${v}</span>`;
+          // Make negative effects MORE visible
+          const cls=v>0?'effect-pos':'effect-neg';
+          const prefix=v>0?'+':'';
+          return`<span class="effect-tag ${cls}" style="${v<0?'font-weight:700;font-size:1.05em':''}">
+            ${lab} ${prefix}${v}${v<-10?'⚠️':''}</span>`;
         }).filter(Boolean).join('');
         const traitHtml=dec.trait?`<div class="decision-unlock">🏷 Rasgo: ${dec.trait.label}</div>`:'';
         const unlocksHtml=dec.unlocks.length?`<div class="decision-unlock">🔓 Abre: ${dec.unlocks.join(', ')}</div>`:'';
@@ -2701,7 +2736,6 @@ function _extResetGame(){
   _combatState=null;
   document.getElementById('combat-overlay')&&document.getElementById('combat-overlay').classList.remove('show');
   document.getElementById('combat-result')&&document.getElementById('combat-result').classList.remove('show');
-  _lastOracleTurn=-999;
   _lastNarratorTurn=0;
   initCrisisSystem(GS||{});
   initAlienChat(GS||{});
@@ -3833,7 +3867,7 @@ _extAfterDecision=function(){
   try{applySpeciesBonuses(GS);}catch(e){}
   try{checkCrisisTrigger(GS);}catch(e){console.error('crisis:',e);}
   try{checkAlienChat(GS);}catch(e){console.error('alien:',e);}
-  try{if(GS.turn>0&&GS.turn%20===0) runOracle();}catch(e){}
+
   try{renderAlienPanel();}catch(e){}
   try{if(GS._lastDecisionIndex!=null) renderAdvisorsPanel(GS._lastEvent,true,GS._lastDecisionIndex);}catch(e){}
   try{
@@ -5727,55 +5761,7 @@ function renderAlienPanel(){
 /* ════════════════════════════════════════════════════════
    SISTEMA 6: ORÁCULO DE PREDICCIONES (IA)
 ════════════════════════════════════════════════════════ */
-let _lastOracleTurn=-999;
 
-async function runOracle(){
-  if(!GS)return;
-  if(GS.turn-_lastOracleTurn<20)return;
-  _lastOracleTurn=GS.turn;
-
-  const eraKey=GS.evoLine[GS.evoStageIndex];
-  const stage=EVO[eraKey];
-  const turnsLeft=GS.maxTurns-GS.turn;
-  const trend=GS.poder>200&&GS.estabilidad>200?'floreciente':GS.estabilidad<80?'al borde del colapso':GS.tecnologia>300?'tecnológicamente avanzado':'en desarrollo';
-
-  const prompt=`Eres el Oráculo del Imperio ${GS.name}, una entidad mística que predice el futuro con dramatismo.
-Imperio: Era ${stage.name}, Turno ${GS.turn}/${GS.maxTurns}, ${turnsLeft} turnos restantes.
-Estado: Poder ${GS.poder}, Estabilidad ${GS.estabilidad}, Tecnología ${GS.tecnologia}, Población ${GS.poblacion}M.
-Tendencia: ${trend}.
-Genera UNA predicción dramática y específica en español (máximo 40 palabras). 
-Puede ser positiva, negativa o ambigua. 
-Usa metáforas épicas. Sin listas. Solo la predicción.`;
-
-  const el=document.getElementById('oracle-text');
-  const box=document.getElementById('oracle-box');
-  if(!el||!box)return;
-  box.style.display='block';
-  el.textContent='🔮 El oráculo contempla el futuro...';
-
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:100,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await res.json();
-    const text=data.content&&data.content[0]&&data.content[0].text;
-    if(text)el.textContent=text.trim();
-    else el.textContent='Los astros guardan silencio...';
-  }catch(e){
-    el.textContent='El oráculo no puede ver en este momento.';
-  }
-}
-
-function closeOracle(){
-  const el=document.getElementById('oracle-box');
-  if(el)el.style.display='none';
-}
 
 /* ════════════════════════════════════════════════════════
    SISTEMA 9: EVENTOS ENCADENADOS MEJORADO
@@ -6676,3 +6662,65 @@ function accelerateResearch(researchId){
   renderCitiesPanel();
   renderHUD();
 }
+
+/* ════════════════════════════════════════════════════════
+   BALANCE: Ensure every decision has real tradeoffs
+════════════════════════════════════════════════════════ */
+(function enforceTradeoffs(){
+  const ALL_STATS=['poder','estabilidad','tecnologia'];
+  EVENT_CATALOG.forEach(function(ev){
+    if(!ev.decisions)return;
+    ev.decisions.forEach(function(dec,idx){
+      const fx=dec.effects;
+      if(!fx)return;
+      const posStats=ALL_STATS.filter(function(s){return (fx[s]||0)>0;});
+      const negStats=ALL_STATS.filter(function(s){return (fx[s]||0)<0;});
+      const totalPos=ALL_STATS.reduce(function(a,s){return a+(fx[s]>0?fx[s]:0);},0);
+      
+      // If purely positive, add penalty to non-boosted stat
+      if(negStats.length===0&&totalPos>0){
+        const notBoosted=ALL_STATS.filter(function(s){return !(fx[s]>0);});
+        if(notBoosted.length>0){
+          const target=notBoosted[Math.floor(Math.random()*notBoosted.length)];
+          // Penalty scales with decision index: A=30%, B=45%, C=60%
+          const pctCost=[0.5,0.65,0.80][idx]||0.55;
+          fx[target]=-Math.max(3,Math.round(totalPos*pctCost));
+        }
+      }
+      
+      // Increase existing negatives by 20% if they seem too mild
+      negStats.forEach(function(s){
+        if(fx[s]>-3) fx[s]=Math.round(fx[s]*1.2);
+      });
+      
+      // Reduce positives by 10% in option A (the "safe" choice)
+      if(idx===0){
+        posStats.forEach(function(s){
+          fx[s]=Math.max(1,Math.round(fx[s]*0.9));
+        });
+      }
+    });
+  });
+  // Same for NEW_EVENTS
+  if(typeof NEW_EVENTS!=='undefined'){
+    NEW_EVENTS.forEach(function(ev){
+      if(!ev.decisions)return;
+      ev.decisions.forEach(function(dec,idx){
+        const fx=dec.effects;
+        if(!fx)return;
+        const posStats=ALL_STATS.filter(function(s){return(fx[s]||0)>0;});
+        const negStats=ALL_STATS.filter(function(s){return(fx[s]||0)<0;});
+        const totalPos=ALL_STATS.reduce(function(a,s){return a+(fx[s]>0?fx[s]:0);},0);
+        if(negStats.length===0&&totalPos>0){
+          const notBoosted=ALL_STATS.filter(function(s){return!(fx[s]>0);});
+          if(notBoosted.length>0){
+            const target=notBoosted[0];
+            const pctCost=[0.5,0.65,0.80][idx]||0.55;
+            fx[target]=-Math.max(3,Math.round(totalPos*pctCost));
+          }
+        }
+      });
+    });
+  }
+  console.log('[Balance] Tradeoffs enforced on all events');
+})();

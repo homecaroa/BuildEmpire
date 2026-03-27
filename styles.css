@@ -151,9 +151,9 @@ select option:disabled{color:#252c10;background:#090b05}
 .evo-node.done .evo-node-name,.evo-node.active .evo-node-name{color:var(--green)}
 
 /* GAME LAYOUT */
-.game-layout{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}
-@media(max-width:800px){.game-layout{grid-template-columns:1fr}}
-.game-sidebar{display:flex;flex-direction:column;gap:14px}
+.game-layout{display:block;width:100%}
+@media(max-width:800px){.game-layout{display:block;width:100%}}
+
 
 /* CIVI STATUS */
 .civi-status{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:14px;font-size:12.6px}
@@ -541,10 +541,6 @@ select option:disabled{color:#252c10;background:#090b05}
 
 
 
-/* ═══ BOTTOM PANELS ROW ═══ */
-.bottom-panels-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.bottom-panel{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px}
-.bottom-panel-title{font-family:'Orbitron',sans-serif;font-size:10.3px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 
 /* ═══ PAGE COMPACT ═══ */
 #app{padding:10px 12px 20px}
@@ -561,8 +557,8 @@ h1{font-size:clamp(20.7px,4vw,41.4px) !important}
 .evo-inline{margin-bottom:8px;padding:2px 0 4px}
 .evo-node-dot{width:26px;height:26px;font-size:14.9px}
 .evo-node-name{font-size:8px}
-.game-layout{gap:10px;margin-bottom:0}
-.game-sidebar{gap:8px}
+.game-layout{display:block;width:100%}
+
 .civi-status{padding:8px}
 .civi-status-title{font-size:10.3px;margin-bottom:6px}
 .civi-row{margin-bottom:4px;font-size:12.6px}
@@ -635,3 +631,43 @@ body,#app,.panel,.civi-status,.turn-panel,.extra-panel,.hud-card,
 .research-header{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text);margin-bottom:4px}
 .research-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:3px}
 .research-fill{height:100%;background:var(--green);border-radius:3px;transition:width .5s}
+
+/* ═══ BALANCE: Negative effects more visible ═══ */
+.effect-neg{background:rgba(255,77,58,.18) !important;border-color:rgba(255,77,58,.5) !important;color:#ff6b55 !important;font-weight:700}
+.effect-pos{background:rgba(127,255,58,.1) !important;color:var(--green) !important}
+.decision-card{border-left:3px solid var(--border);transition:border-color .2s}
+.decision-card:hover{border-left-color:var(--amber)}
+
+/* ═══ NEW HORIZONTAL LAYOUT ═══ */
+.game-layout{display:block;width:100%}
+.bottom-panels-row{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-top:10px;
+}
+@media(max-width:900px){
+  .bottom-panels-row{grid-template-columns:repeat(2,1fr);}
+}
+@media(max-width:500px){
+  .bottom-panels-row{grid-template-columns:1fr;}
+}
+.bottom-panel{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:10px;
+  min-height:80px;
+  overflow:hidden;
+}
+.bottom-panel-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:9px;
+  letter-spacing:2px;
+  color:var(--green);
+  text-transform:uppercase;
+  margin-bottom:7px;
+  padding-bottom:4px;
+  border-bottom:1px solid var(--border);
+}
+.history-log{max-height:90px;overflow-y:auto}
