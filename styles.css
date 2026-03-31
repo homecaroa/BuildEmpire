@@ -671,3 +671,275 @@ body,#app,.panel,.civi-status,.turn-panel,.extra-panel,.hud-card,
   border-bottom:1px solid var(--border);
 }
 .history-log{max-height:90px;overflow-y:auto}
+
+/* ════════════════════════════════════════════════════════
+   SISTEMA 1: ANIMACIONES HUD — DELTA FLOTANTE
+════════════════════════════════════════════════════════ */
+.hud-delta{
+  position:absolute;
+  top:-4px;right:4px;
+  font-family:'Orbitron',sans-serif;
+  font-size:11px;font-weight:800;
+  pointer-events:none;z-index:99;
+  animation:delta-float 1.6s ease-out forwards;
+}
+.hud-delta-pos{color:#7fff3a;text-shadow:0 0 8px rgba(127,255,58,.8)}
+.hud-delta-neg{color:#ff4d3a;text-shadow:0 0 8px rgba(255,77,58,.8)}
+@keyframes delta-float{
+  0%  {opacity:1;transform:translateY(0) scale(1.2)}
+  30% {opacity:1;transform:translateY(-12px) scale(1)}
+  100%{opacity:0;transform:translateY(-28px) scale(.85)}
+}
+.hud-card{position:relative;overflow:visible !important}
+.hud-card.hud-flash-pos{animation:hud-flash-green .4s ease-out}
+.hud-card.hud-flash-neg{animation:hud-flash-red .4s ease-out}
+@keyframes hud-flash-green{
+  0%{background:rgba(127,255,58,.35)}50%{background:rgba(127,255,58,.15)}100%{background:var(--panel)}
+}
+@keyframes hud-flash-red{
+  0%{background:rgba(255,77,58,.35)}50%{background:rgba(255,77,58,.15)}100%{background:var(--panel)}
+}
+
+/* ════════════════════════════════════════════════════════
+   SISTEMA 2: FONDO DINÁMICO POR ERA
+════════════════════════════════════════════════════════ */
+#era-bg-canvas{
+  position:fixed;inset:0;
+  width:100%;height:100%;
+  pointer-events:none;
+  z-index:0;
+  opacity:.18;
+  transition:opacity 1s;
+}
+
+/* ════════════════════════════════════════════════════════
+   SISTEMA 3: ANIMACIÓN TARJETAS EVENTO
+════════════════════════════════════════════════════════ */
+.event-display{
+  animation:event-enter .35s cubic-bezier(.2,.8,.3,1) both;
+}
+@keyframes event-enter{
+  0%  {opacity:0;transform:translateY(-18px) scale(.97)}
+  60% {opacity:1;transform:translateY(2px) scale(1.01)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+.event-display.ev-catastrofe{
+  animation:event-catastrofe .4s cubic-bezier(.2,.8,.3,1) both;
+}
+@keyframes event-catastrofe{
+  0%  {opacity:0;transform:translateX(-6px) scale(.97)}
+  20% {transform:translateX(5px)}
+  40% {transform:translateX(-3px)}
+  60% {transform:translateX(2px)}
+  80% {transform:translateX(-1px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}
+}
+.event-display.ev-militar{animation:event-militar .35s ease-out both}
+@keyframes event-militar{
+  0%  {opacity:0;transform:translateY(-14px)}
+  50% {transform:translateY(3px)}
+  100%{opacity:1;transform:translateY(0)}
+}
+/* Flash previo al slide */
+#event-area{position:relative}
+#event-area::before{
+  content:'';
+  position:absolute;inset:0;
+  background:var(--green);
+  opacity:0;
+  pointer-events:none;
+  border-radius:6px;
+  z-index:10;
+  transition:opacity .05s;
+}
+#event-area.flash-new::before{
+  animation:area-flash .25s ease-out;
+}
+@keyframes area-flash{
+  0%{opacity:.25}100%{opacity:0}
+}
+.decision-card{
+  transition:transform .15s, box-shadow .15s, border-color .15s;
+}
+.decision-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 4px 18px rgba(0,0,0,.4);
+}
+.decision-card:active{transform:scale(.97)}
+
+/* ════════════════════════════════════════════════════════
+   SISTEMA 4: RACHA DE DECISIONES
+════════════════════════════════════════════════════════ */
+#streak-badge{
+  display:none;
+  position:fixed;
+  top:80px;right:16px;
+  background:linear-gradient(135deg,#ff8800,#ffdd00);
+  color:#000;
+  font-family:'Orbitron',sans-serif;
+  font-size:11px;font-weight:900;
+  letter-spacing:2px;
+  padding:8px 14px;
+  border-radius:20px;
+  z-index:500;
+  box-shadow:0 0 20px rgba(255,180,0,.6);
+  animation:streak-pulse 1s ease-in-out infinite;
+  cursor:default;
+}
+@keyframes streak-pulse{
+  0%,100%{box-shadow:0 0 15px rgba(255,180,0,.5)}
+  50%   {box-shadow:0 0 30px rgba(255,180,0,.9)}
+}
+.streak-multiplier-flash{
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-family:'Orbitron',sans-serif;
+  font-size:48px;font-weight:900;
+  color:#ffdd00;
+  text-shadow:0 0 40px rgba(255,220,0,.9);
+  pointer-events:none;z-index:600;
+  animation:multiplier-burst .8s ease-out forwards;
+}
+@keyframes multiplier-burst{
+  0%  {opacity:1;transform:translate(-50%,-50%) scale(.5)}
+  40% {opacity:1;transform:translate(-50%,-50%) scale(1.2)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.5)}
+}
+
+/* ════════════════════════════════════════════════════════
+   SISTEMA 5: DECISIONES EN CURSO
+════════════════════════════════════════════════════════ */
+.pending-card{padding:8px;background:rgba(8,11,3,.5);border:1px solid var(--border);border-radius:4px;margin-bottom:6px}
+.pending-header{display:flex;align-items:flex-start;gap:8px;margin-bottom:5px}
+.pending-icon{font-size:18px;flex-shrink:0}
+.pending-info{flex:1;min-width:0}
+.pending-title{font-size:10px;color:var(--text);font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pending-desc{font-size:9px;color:var(--text-dim);margin-top:2px;line-height:1.4}
+.pending-fx{font-size:9px;margin-top:3px;display:flex;gap:6px;flex-wrap:wrap}
+.pending-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.pending-fill{height:100%;border-radius:2px;transition:width .5s}
+
+/* ════════════════════════════════════════════════════════
+   SISTEMA 6: PRESUPUESTO
+════════════════════════════════════════════════════════ */
+#budget-display{font-size:10px}
+
+/* ════════════════════════════════════════════════════════
+   SISTEMA 7: CINEMÁTICA FIN DE ERA
+════════════════════════════════════════════════════════ */
+.cin-phase{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;min-height:100vh;padding:40px 20px;
+  animation:cin-fadein .8s ease-out both;
+  text-align:center;
+}
+@keyframes cin-fadein{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.cin-fadeout{animation:cin-fadeout .6s ease-in forwards !important}
+@keyframes cin-fadeout{from{opacity:1}to{opacity:0}}
+
+/* Phase 1 */
+.cin-empire-name{
+  font-family:'Orbitron',sans-serif;font-size:clamp(22px,5vw,42px);
+  font-weight:900;letter-spacing:4px;color:#fff;
+  text-shadow:0 0 40px rgba(255,255,255,.5);
+  margin-bottom:16px;
+  animation:cin-name-glow 2s ease-in-out infinite;
+}
+@keyframes cin-name-glow{
+  0%,100%{text-shadow:0 0 30px rgba(255,255,255,.4)}
+  50%{text-shadow:0 0 60px rgba(255,255,255,.8),0 0 100px rgba(200,180,255,.4)}
+}
+.cin-era-from{font-family:'Orbitron',sans-serif;font-size:16px;letter-spacing:3px;color:rgba(255,255,255,.6);margin-bottom:8px}
+.cin-year{font-family:'Share Tech Mono',monospace;font-size:13px;color:rgba(255,255,255,.4);letter-spacing:2px}
+
+/* Phase 2 */
+.cin-section-title{
+  font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:3px;
+  color:rgba(200,180,255,.8);text-transform:uppercase;margin-bottom:16px;
+}
+.cin-stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:400px;width:100%;margin-bottom:8px}
+.cin-stat-card{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:14px;
+}
+.cin-stat-highlight{border-color:rgba(200,180,255,.4);background:rgba(200,180,255,.08)}
+.cin-stat-icon{font-size:22px;margin-bottom:4px}
+.cin-stat-val{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#fff}
+.cin-stat-name{font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-top:2px}
+.cin-decisions{max-width:500px;width:100%}
+.cin-decision-item{
+  font-size:11px;color:rgba(255,255,255,.7);padding:6px 10px;
+  border-left:2px solid rgba(200,180,255,.4);margin-bottom:6px;
+  text-align:left;line-height:1.5;
+}
+
+/* Phase 3 */
+.cin-new-era-label{
+  font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:5px;
+  color:rgba(200,180,255,.6);text-transform:uppercase;margin-bottom:20px;
+}
+.cin-new-era-icon{font-size:64px;margin-bottom:16px;animation:cin-icon-pulse 1.5s ease-in-out infinite}
+@keyframes cin-icon-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.cin-new-era-name{
+  font-family:'Orbitron',sans-serif;font-size:clamp(24px,6vw,48px);
+  font-weight:900;letter-spacing:4px;color:#fff;
+  text-shadow:0 0 50px rgba(200,180,255,.7);margin-bottom:10px;
+}
+.cin-new-era-period{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:2px;margin-bottom:30px}
+.cin-continue-hint{
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;
+  color:rgba(255,255,255,.3);text-transform:uppercase;
+  animation:cin-hint-blink 1.5s ease-in-out infinite;
+}
+@keyframes cin-hint-blink{0%,100%{opacity:.3}50%{opacity:.8}}
+
+/* ════════════════════════════════════════════════════════
+   CIUDADES E INVESTIGACIÓN — PANEL EXPANDIDO
+════════════════════════════════════════════════════════ */
+.cities-panel-expanded{
+  grid-column:span 2; /* takes double width */
+}
+.cities-section-title{
+  font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;
+  color:var(--text-dim);text-transform:uppercase;
+  margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid var(--border);
+}
+.cities-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:8px}
+.city-card-v2{background:rgba(8,11,3,.5);border:1px solid var(--border);border-radius:5px;padding:8px;transition:border-color .2s}
+.city-card-v2:hover{border-color:var(--green)}
+.city-card-header{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.city-card-name{font-size:10px;color:var(--text);font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.city-card-spec{font-size:9px;color:var(--text-dim);margin-top:1px}
+.city-card-stats{display:flex;flex-wrap:wrap;gap:6px;font-size:9px;color:var(--text-dim)}
+
+.cities-found-section{margin-bottom:8px}
+.cities-spec-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.city-spec-btn{padding:6px 4px;background:rgba(8,11,3,.5);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;transition:border-color .2s,background .2s}
+.city-spec-btn:hover:not(.disabled){border-color:var(--green);background:rgba(127,255,58,.08)}
+.city-spec-btn.disabled{opacity:.4;cursor:not-allowed}
+.city-spec-name{font-size:8px;color:var(--text-dim)}
+.city-spec-bonus{font-size:8px;color:var(--green)}
+
+.research-card-v2{background:rgba(8,11,3,.5);border:1px solid var(--border-hi);border-radius:5px;padding:9px;margin-bottom:6px;transition:border-color .2s}
+.research-card-v2:hover{border-color:var(--green)}
+.research-card-header{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.research-name{font-size:10px;color:var(--text);font-weight:bold}
+.research-bonus{font-size:9px;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.research-progress-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.research-progress-fill{height:100%;background:var(--green);border-radius:3px;transition:width .5s}
+
+.research-done-grid{display:flex;flex-wrap:wrap;gap:4px}
+.research-done-badge{font-size:9px;color:var(--green);padding:3px 7px;background:rgba(127,255,58,.08);border:1px solid rgba(127,255,58,.2);border-radius:12px;white-space:nowrap}
+
+/* Update bottom grid to use 4 cols (cities takes 2) */
+.bottom-panels-row{grid-template-columns:repeat(3,1fr)}
+.cities-panel-expanded{grid-column:span 2}
+@media(max-width:900px){
+  .bottom-panels-row{grid-template-columns:1fr 1fr}
+  .cities-panel-expanded{grid-column:span 2}
+}
+@media(max-width:500px){
+  .bottom-panels-row{grid-template-columns:1fr}
+  .cities-panel-expanded{grid-column:span 1}
+}

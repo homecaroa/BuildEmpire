@@ -10,6 +10,7 @@
 <body>
 <canvas id="stars-canvas"></canvas>
 <div id="app">
+<canvas id="era-bg-canvas"></canvas>
 <!-- AUTH BAR -->
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:8px 0 4px;margin-bottom:4px">
   <span id="auth-info" style="font-size:12px;color:var(--green);font-family:Orbitron,sans-serif;letter-spacing:1px"></span>
@@ -346,6 +347,7 @@
     <div class="year-progress-bg"><div class="year-progress-fill" id="year-fill" style="width:0%"></div></div>
   </div>
 
+  <div id="budget-display" style="margin-bottom:8px;padding:8px 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px"></div>
   <div class="evo-inline" id="evo-inline"></div>
 
   <div class="game-layout" style="display:block">
@@ -360,9 +362,18 @@
               <button id="player-action-btn" class="btn btn-secondary" onclick="togglePlayerActionDD()" disabled style="font-size:10px;padding:4px 8px;opacity:0.4;letter-spacing:1px">⚡ Acción (3)</button>
               <div id="player-action-dropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--panel);border:1px solid var(--border-hi);border-radius:4px;z-index:50;min-width:210px;padding:4px;margin-top:2px"></div>
             </div>
+            <span id="pending-badge" onclick="togglePendingPanel()" style="display:none;cursor:pointer;background:rgba(232,196,74,.2);border:1px solid var(--amber);color:var(--amber);font-size:9px;padding:3px 8px;border-radius:10px;font-family:Orbitron,sans-serif;letter-spacing:1px">⏳ 0</span>
             <span id="crisis-badge" onclick="toggleCrisisPanel()" style="display:none;cursor:pointer;background:var(--red);color:#fff;font-size:9px;padding:3px 8px;border-radius:10px;font-family:Orbitron,sans-serif;letter-spacing:1px;animation:crisis-blink 1s infinite">⚠️ CRISIS</span>
             <span id="alien-badge" onclick="document.getElementById('alien-chat').style.display='block'" style="display:none;cursor:pointer;background:var(--cyan);color:#000;font-size:9px;padding:3px 8px;border-radius:10px;font-family:Orbitron,sans-serif;letter-spacing:1px">📡 MSG</span>
           </div>
+        </div>
+        <!-- DECISIONES EN CURSO -->
+        <div id="pending-panel" style="display:none;margin-bottom:10px;padding:10px;background:rgba(232,196,74,.05);border:1px solid rgba(232,196,74,.3);border-radius:6px">
+          <div style="font-family:Orbitron,sans-serif;font-size:8px;letter-spacing:2px;color:var(--amber);text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between">
+            <span>⏳ Consecuencias en curso</span>
+            <button onclick="togglePendingPanel()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:12px">✕</button>
+          </div>
+          <div id="pending-list"></div>
         </div>
         <div class="turn-note" id="turn-note" style="display:none">
           <div class="turn-note-label">Consecuencias de tu decisión anterior</div>
@@ -407,31 +418,25 @@
         </div>
 
         <!-- Panel 3: Clases sociales + Panel galáctico -->
-        <div class="bottom-panel">
-          <div class="bottom-panel-title">👥 Clases Sociales</div>
-          <div id="social-panel"><div style="color:var(--text-dim);font-size:10px;padding:4px">Funda el Imperio</div></div>
           <div style="margin-top:6px;font-family:Orbitron,sans-serif;font-size:9px;letter-spacing:2px;color:var(--green);margin-bottom:4px">🌌 PANEL GALÁCTICO</div>
           <div id="galactic-panel"><div style="color:var(--text-dim);font-size:10px;padding:4px">Sin contacto aún</div></div>
         </div>
 
         <!-- Panel 4: Dinastía + Consejeros -->
-        <div class="bottom-panel">
-          <div class="bottom-panel-title">👑 Dinastía</div>
-          <div id="dynasty-panel"><div style="color:var(--text-dim);font-size:10px;padding:4px">Funda el Imperio</div></div>
           <div style="margin-top:6px;font-family:Orbitron,sans-serif;font-size:9px;letter-spacing:2px;color:var(--green);margin-bottom:4px">🗣️ CONSEJEROS</div>
           <div id="advisors-panel"><div style="color:var(--text-dim);font-size:10px;padding:4px">Esperando...</div></div>
         </div>
 
-        <!-- Panel 5: Ciudades e Investigación -->
-        <div class="bottom-panel">
-          <div class="bottom-panel-title">🏙️ Ciudades e Investigación</div>
-          <div id="cities-panel"><div style="color:var(--text-dim);font-size:10px;padding:4px">Disponible desde era Ciudades</div></div>
+        <!-- Panel 5: Ciudades e Investigación EXPANDIDO -->
+        <div class="bottom-panel cities-panel-expanded">
+          <div class="bottom-panel-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>🏙️ Ciudades e Investigación</span>
+            <span id="cities-budget-mini" style="font-size:9px;color:var(--amber)"></span>
+          </div>
+          <div id="cities-panel"></div>
         </div>
 
         <!-- Panel 6: Figuras + Monumentos -->
-        <div class="bottom-panel">
-          <div class="bottom-panel-title">👤 Figuras del Imperio</div>
-          <div id="characters-panel"><div style="color:var(--text-dim);font-size:10px;padding:4px">Funda el Imperio</div></div>
           <div style="margin-top:6px;font-family:Orbitron,sans-serif;font-size:9px;letter-spacing:2px;color:var(--green);cursor:pointer;display:flex;justify-content:space-between" onclick="toggleMonuments()">
             <span>🏛️ MONUMENTOS</span><span id="mon-arrow">▾</span>
           </div>
@@ -754,5 +759,10 @@
   document.addEventListener('touchstart',_try);
 })();
 </script>
+<div id="streak-badge"></div>
+
+<!-- CINEMATIC ERA TRANSITION -->
+<div id="cinematic-overlay" style="display:none;position:fixed;inset:0;background:#000;z-index:1000;flex-direction:column;justify-content:center;align-items:center;cursor:pointer">
+</div>
 </body>
 </html>

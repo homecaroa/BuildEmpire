@@ -439,7 +439,7 @@ function drawPlanetMirror(){
 
 function startPlanetLoop(){
   if(pFrame)cancelAnimationFrame(pFrame);
-  function loop(){pAngle++;drawPlanet(readData());drawPlanetMirror();drawHexMap();pFrame=requestAnimationFrame(loop)}
+  function loop(){pAngle++;drawPlanet(readData());drawPlanetMirror();pFrame=requestAnimationFrame(loop)}
   loop();
 }
 
@@ -1722,6 +1722,7 @@ function chooseDecision(decisionIndex){
     const ns=EVO[GS.evoLine[GS.evoStageIndex]];
     addLog(GS.year,`🌟 Nueva etapa: ${ns.name} — ${ns.periodo}`);
     checkDynastyChange(GS,prevStage);
+    try{refreshBudgetOnEra(GS);}catch(e){}
     GS.chronicle.push({year:GS.year,text:`🌟 ${ns.name}: ${ns.periodo} comienza.`});
     addTimelineNode(ns.icon,'era-up',`Año ${GS.year}: Era ${ns.name}`);
     // Era transition animation, then milestone overlay
@@ -2673,9 +2674,8 @@ function _extFoundEmpire(){
   initSocialClasses(GS);
   initHistoricalPressure(GS);
   GS.galaxyCivs=generateGalaxyCivs();
-  renderSocialPanel();
-  renderGalacticPanel();
 }
+
 
 function _extAfterDecision(){
   if(!GS)return;
@@ -2697,8 +2697,8 @@ function _extAfterDecision(){
     const contactEv=tryFirstContact(GS);
     if(contactEv) GS._pendingContactEvent=contactEv;
   }catch(e){console.error('firstContact:',e);}
-  try{renderSocialPanel();}catch(e){}
-  try{renderGalacticPanel();}catch(e){}
+
+
 }
 
 function _extAfterInvestment(area){
@@ -2742,12 +2742,8 @@ function _extResetGame(){
   hideCrisisBadge();
   closeAlienChat();
   closeOracle();
-  const dp=document.getElementById('dynasty-panel');
-  if(dp) dp.innerHTML='<div style="color:var(--text-dim);font-size:10px;text-align:center;padding:4px">Funda el Imperio</div>';
   const mp=document.getElementById('monuments-panel');
-  if(mp) mp.innerHTML='<div style="color:var(--text-dim);font-size:10px;text-align:center;padding:4px">Sin monumentos aún</div>';
-  const ap=document.getElementById('advisors-panel');
-  if(ap) ap.innerHTML='<div style="color:var(--text-dim);font-size:10px;text-align:center;padding:4px">Esperando evento...</div>';
+  if(mp) mp.innerHTML='';
 }
 
 
@@ -2820,6 +2816,10 @@ function autoLoad(){
     document.getElementById('final-screen').style.display='none';
     renderHUD();renderEvoTrack();renderCiviStatus();renderTurnPanel();
     try{applyEraTheme(GS.evoLine[GS.evoStageIndex]);reapplyColorTheme();}catch(e){}
+    try{startEraBG(GS.evoLine[GS.evoStageIndex]);}catch(e){}
+    try{initStreak(GS);}catch(e){}
+    try{initBudget(GS);renderBudgetPanel();}catch(e){}
+    try{initPendingDecisions(GS);updatePendingBadge(GS);}catch(e){}
     renderObjectives();updateAccordionTraits();buildAccordion();
     if(typeof renderSocialPanel==='function')renderSocialPanel();
     if(typeof renderGalacticPanel==='function')renderGalacticPanel();
@@ -2829,7 +2829,7 @@ function autoLoad(){
     if(typeof renderBranchBadges==='function')renderBranchBadges();
     const lbl=document.getElementById('game-planet-name');
     if(lbl)lbl.textContent=GS.name||'';
-    startPlanetLoop();
+    //
     showSaveIndicator('✅ Partida restaurada');
     return true;
   }catch(e){return false;}
@@ -2926,7 +2926,7 @@ function startQuickGame(){
 updatePlanet();
 updateSelectInfos();
 drawShield();
-if(!autoLoad()) startPlanetLoop();
+if(!autoLoad()) //
 loadSavedTheme();
 document.querySelectorAll('select').forEach(s=>s.addEventListener('change',updatePlanet));
 
@@ -3836,9 +3836,6 @@ _extFoundEmpire=function(){
   loadSavedTheme();
   // Apply era theme
   applyEraTheme(GS.evoLine[GS.evoStageIndex]);
-  // Dinastías
-  initDynasties(GS);
-  renderDynastyPanel();
   // Crisis, Chat alienígena
   initCrisisSystem(GS);
   initAlienChat(GS);
@@ -3849,6 +3846,12 @@ _extFoundEmpire=function(){
   // Ciudades
   initCities(GS);
   renderCitiesPanel();
+  // Presupuesto
+  initBudget(GS);
+  renderBudgetPanel();
+  // Decisiones pendientes
+  initPendingDecisions(GS);
+  updatePendingBadge(GS);
   // Consejeros
   renderAdvisorsPanel(GS.currentEvent,false,-1);
 }
@@ -3863,12 +3866,14 @@ _extAfterDecision=function(){
   try{tickCities(GS);}catch(e){console.error('tickCities:',e);}
   try{tickResearch(GS);}catch(e){console.error('tickResearch:',e);}
   try{renderCitiesPanel();}catch(e){}
-  try{renderDynastyPanel();}catch(e){}
+  try{tickPendingDecisions(GS);}catch(e){console.error('tickPending:',e);}
+  try{renderPendingPanel();}catch(e){}
+
   try{applySpeciesBonuses(GS);}catch(e){}
   try{checkCrisisTrigger(GS);}catch(e){console.error('crisis:',e);}
   try{checkAlienChat(GS);}catch(e){console.error('alien:',e);}
 
-  try{renderAlienPanel();}catch(e){}
+
   try{if(GS._lastDecisionIndex!=null) renderAdvisorsPanel(GS._lastEvent,true,GS._lastDecisionIndex);}catch(e){}
   try{
     const ev=GS.currentEvent;
@@ -3958,6 +3963,7 @@ chooseDecision=function(decisionIndex){
   GS._lastDecisionIndex=decisionIndex;
   _origChooseDecision(decisionIndex);
   if(!GS||!ev||!dec)return;
+  try{maybePushPendingDecision(GS,ev,dec);}catch(e){}
   try{if(ev&&dec) checkAutoMonument(GS,ev.id,dec.letter);}catch(e){}
   try{if(ev&&dec) checkChainEvents(GS,ev.id,dec.letter);}catch(e){}
   try{registerLegacyTrigger(GS,ev.id,dec.letter);}catch(e){}
@@ -4156,7 +4162,7 @@ function loadFromSlot(slot){
   if(typeof renderPlayerActionsButton==='function')renderPlayerActionsButton();
   if(typeof renderBranchBadges==='function')renderBranchBadges();
   const lbl=document.getElementById('game-planet-name');if(lbl)lbl.textContent=GS.name||'';
-  startPlanetLoop();
+  //
   applyEraTheme(GS.evoLine[GS.evoStageIndex]);
   closeSavesMenu();
   showSaveIndicator('✅ Partida '+( slot+1)+' cargada');
@@ -6493,234 +6499,112 @@ function renderCitiesPanel(){
   const el=document.getElementById('cities-panel');
   if(!el||!GS)return;
   initCities(GS);
-  const era=GS.evoLine[GS.evoStageIndex];
+  initBudget(GS);
+
   const eraOrder=['tribal','agricola','ciudades','nacion','industrial','planetario','orbital','sistema','interestelar','galactico','trascendente'];
-  const eraIdx=eraOrder.indexOf(era);
-  const canFound=eraIdx>=2; // from ciudades era onwards
+  const eraIdx=eraOrder.indexOf(GS.evoLine[GS.evoStageIndex]);
+  const canFound=eraIdx>=2;
+  const remaining=GS._budget-GS._budgetUsed;
+
+  // Update mini budget badge
+  const mb=document.getElementById('cities-budget-mini');
+  if(mb)mb.textContent=`💰 ${remaining}/${GS._budget} pts`;
 
   let html='';
-  // Cities list
+
+  // ── CITIES ──────────────────────────────────────
+  html+=`<div class="cities-section-title">🏙️ CIUDADES (${GS.cities.length}/6)</div>`;
+  html+=`<div class="cities-grid">`;
   GS.cities.forEach(function(city){
     const spec=CITY_SPECS[city.spec]||CITY_SPECS.cultura;
     const moralColor=city.moral>70?'var(--green)':city.moral>40?'var(--amber)':'var(--red)';
-    html+=`<div class="city-card">
-      <div class="city-header">
-        <span class="city-spec-icon">${spec.icon}</span>
-        <div class="city-info">
-          <div class="city-name">${city.name}</div>
-          <div class="city-spec">${spec.name} · Nv.${city.level}</div>
+    const bonusStr=Object.entries(spec.bonus).map(function(e){
+      return`+${e[1].toFixed(1)}/t ${e[0]}`;
+    }).join(' ');
+    html+=`<div class="city-card-v2">
+      <div class="city-card-header">
+        <span style="font-size:20px">${spec.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div class="city-card-name">${city.name}</div>
+          <div class="city-card-spec">${spec.name} · Nv.${city.level}</div>
         </div>
-        <div class="city-stats">
-          <div style="font-size:9px;color:var(--text-dim)">Pop <span style="color:var(--amber)">${city.pop}M</span></div>
-          <div style="font-size:9px;color:var(--text-dim)">Moral <span style="color:${moralColor}">${Math.round(city.moral)}%</span></div>
-        </div>
+      </div>
+      <div class="city-card-stats">
+        <span>👥 ${city.pop}M</span>
+        <span style="color:${moralColor}">❤️ ${Math.round(city.moral)}%</span>
+        <span style="color:var(--green);font-size:9px">${bonusStr}</span>
       </div>
     </div>`;
   });
+  html+=`</div>`;
 
-  // Found new city button
+  // ── FOUND NEW CITY ──────────────────────────────
   if(canFound){
-    html+=`<div style="margin-top:8px">
-      <div style="font-size:9px;color:var(--text-dim);margin-bottom:5px;font-family:Orbitron,sans-serif;letter-spacing:1px">FUNDAR CIUDAD (−30 Poder, −20 Est.)</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+    const canPay=remaining>=4;
+    html+=`<div class="cities-found-section">
+      <div class="cities-section-title" style="display:flex;justify-content:space-between">
+        <span>➕ FUNDAR (coste: 4 pts)</span>
+        <span style="color:${canPay?'var(--green)':'var(--red)'}">${canPay?'✓ Disponible':'✗ Sin presupuesto'}</span>
+      </div>
+      <div class="cities-spec-grid">
         ${Object.entries(CITY_SPECS).map(function(e){
-          return`<button onclick="foundCity('${e[0]}')" class="city-found-btn" title="${e[1].desc}">
-            ${e[1].icon}<br><span style="font-size:8px">${e[1].name}</span>
+          const [key,spec]=e;
+          const bonusStr=Object.entries(spec.bonus).map(function(b){return`+${b[1]}/t`;}).join(' ');
+          return`<button onclick="foundCity('${key}')" class="city-spec-btn ${!canPay?'disabled':''}" ${!canPay?'disabled':''}>
+            <span style="font-size:16px">${spec.icon}</span>
+            <span class="city-spec-name">${spec.name}</span>
+            <span class="city-spec-bonus">${bonusStr}</span>
           </button>`;
         }).join('')}
       </div>
     </div>`;
   }
 
-  // Active research
+  // ── ACTIVE RESEARCH ────────────────────────────
   const research=GS._cityResearch||[];
   const active=research.filter(function(r){return!r.done;});
+  const done=research.filter(function(r){return r.done;});
+
   if(active.length){
-    html+=`<div style="margin-top:8px;font-size:9px;color:var(--text-dim);font-family:Orbitron,sans-serif;letter-spacing:1px;margin-bottom:4px">🔬 INVESTIGACIONES ACTIVAS</div>`;
+    html+=`<div class="cities-section-title" style="margin-top:10px">🔬 INVESTIGACIONES ACTIVAS (${active.length})</div>`;
     active.forEach(function(r){
       const pct=Math.round(((r.turnsTotal-(r.turnsLeft||r.turnsTotal))/r.turnsTotal)*100);
-      const turnsLeft=r.turnsLeft||0;
-      html+=`<div class="research-card">
-        <div class="research-header">
-          <span>${r.icon} ${r.name}</span>
-          <span style="color:var(--amber);font-size:9px">${turnsLeft}t</span>
+      const urgency=r.turnsLeft<=3?'var(--green)':'var(--text-dim)';
+      const bonusStr=Object.entries(r.bonus||{}).map(function(e){
+        const lab={poder:'Poder',estabilidad:'Estabilidad',tecnologia:'Tecnología',territorio:'Territorio'}[e[0]]||e[0];
+        return`<span style="color:${e[1]>0?'var(--green)':'var(--red)'}">${lab} ${e[1]>0?'+':''}${e[1]}</span>`;
+      }).join(' ');
+      html+=`<div class="research-card-v2">
+        <div class="research-card-header">
+          <span style="font-size:16px">${r.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div class="research-name">${r.name}</div>
+            <div class="research-bonus">${bonusStr}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-family:Orbitron,sans-serif;font-size:13px;font-weight:800;color:${urgency}">${r.turnsLeft}t</div>
+            <button onclick="accelerateResearch('${r.id}')" style="font-size:8px;background:rgba(127,255,58,.1);border:1px solid var(--border);border-radius:3px;color:var(--green);cursor:pointer;padding:2px 5px;margin-top:2px">⚡−3t (15 Tec)</button>
+          </div>
         </div>
-        <div class="research-bar"><div class="research-fill" style="width:${pct}%"></div></div>
-        <div style="font-size:9px;color:var(--text-dim)">${r.desc}</div>
+        <div class="research-progress-bar">
+          <div class="research-progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:3px">${r.desc}</div>
       </div>`;
     });
   }
 
-  // Completed research
-  const done=research.filter(function(r){return r.done;});
+  // ── COMPLETED ──────────────────────────────────
   if(done.length){
-    html+=`<div style="margin-top:6px;font-size:9px;color:var(--text-dim);font-family:Orbitron,sans-serif;letter-spacing:1px;margin-bottom:3px">✓ COMPLETADAS</div>`;
-    done.slice(-3).forEach(function(r){
-      html+=`<div style="font-size:10px;color:var(--green);padding:2px 0">✓ ${r.icon} ${r.name}</div>`;
+    html+=`<div class="cities-section-title" style="margin-top:10px;color:var(--green)">✓ COMPLETADAS (${done.length})</div>`;
+    html+=`<div class="research-done-grid">`;
+    done.slice(-6).forEach(function(r){
+      html+=`<div class="research-done-badge" title="${r.name}: ${r.desc}">${r.icon} ${r.name}</div>`;
     });
+    html+=`</div>`;
   }
 
-  el.innerHTML=html||'<div style="color:var(--text-dim);font-size:10px;text-align:center;padding:4px">Disponible desde era Ciudades</div>';
+  el.innerHTML=html;
 }
 
-/* ════════════════════════════════════════════════════════
-   ÁRBOL DE INVESTIGACIÓN POR CIUDADES
-════════════════════════════════════════════════════════ */
-const RESEARCH_TREE={
-  // Producción
-  metalurgia:    {icon:'⚒️',name:'Metalurgia Avanzada',  spec:'produccion',req:[],        turns:6,  bonus:{poder:+15},          desc:'Armas y herramientas superiores',          unlocks:['ingenieria_militar','aleaciones']},
-  ingenieria_militar:{icon:'🏰',name:'Ingeniería Militar',spec:'produccion',req:['metalurgia'],turns:8,bonus:{poder:+20,estabilidad:+5},desc:'Fortalezas inexpugnables',          unlocks:['artilleria']},
-  aleaciones:    {icon:'🔩',name:'Aleaciones Especiales', spec:'produccion',req:['metalurgia'],turns:7, bonus:{tecnologia:+10,poder:+10},desc:'Materiales imposibles',              unlocks:['nanotecnologia']},
-  artilleria:    {icon:'💣',name:'Artillería Pesada',     spec:'produccion',req:['ingenieria_militar'],turns:9,bonus:{poder:+25},   desc:'Destrucción a distancia',              unlocks:[]},
-  nanotecnologia:{icon:'🧫',name:'Nanotecnología',        spec:'produccion',req:['aleaciones'],turns:12,bonus:{tecnologia:+25,poder:+10},desc:'Ingeniería a escala atómica',       unlocks:['singularidad']},
-  // Ciencia
-  astronomia:    {icon:'🔭',name:'Astronomía',            spec:'ciencia',   req:[],        turns:5,  bonus:{tecnologia:+12},       desc:'Los cielos revelan sus secretos',          unlocks:['fisica_cuantica','navegacion_estelar']},
-  fisica_cuantica:{icon:'⚛️',name:'Física Cuántica',      spec:'ciencia',   req:['astronomia'],turns:10,bonus:{tecnologia:+20},    desc:'La realidad a nivel subatómico',           unlocks:['computacion_cuantica','teletransporte']},
-  navegacion_estelar:{icon:'🚀',name:'Navegación Estelar',spec:'ciencia',   req:['astronomia'],turns:8,bonus:{tecnologia:+15,territorio:+1},desc:'Rutas entre las estrellas',       unlocks:['warp_drive']},
-  computacion_cuantica:{icon:'💻',name:'Computación Cuántica',spec:'ciencia',req:['fisica_cuantica'],turns:12,bonus:{tecnologia:+30},desc:'Millones de veces más rápido',         unlocks:[]},
-  teletransporte:{icon:'✨',name:'Teletransporte',         spec:'ciencia',   req:['fisica_cuantica'],turns:15,bonus:{tecnologia:+20,estabilidad:+10},desc:'Materia teletransportada', unlocks:[]},
-  warp_drive:    {icon:'🌀',name:'Motor Warp',             spec:'ciencia',   req:['navegacion_estelar'],turns:14,bonus:{tecnologia:+25,territorio:+2},desc:'Viaje más rápido que la luz',unlocks:[]},
-  // Defensa
-  murallas_avanzadas:{icon:'🏯',name:'Murallas Avanzadas',spec:'defensa',   req:[],        turns:5,  bonus:{estabilidad:+12,poder:+5},desc:'Defensa impenetrable',                 unlocks:['escudo_energetico','bunkers']},
-  escudo_energetico:{icon:'🛡️',name:'Escudo Energético', spec:'defensa',   req:['murallas_avanzadas'],turns:10,bonus:{estabilidad:+20,poder:+8},desc:'Campo de fuerza defensivo',  unlocks:['fortaleza_orbital']},
-  bunkers:       {icon:'🏠',name:'Búnkeres Subterráneos', spec:'defensa',   req:['murallas_avanzadas'],turns:7,bonus:{estabilidad:+15},desc:'Supervivencia garantizada',            unlocks:[]},
-  fortaleza_orbital:{icon:'🛰️',name:'Fortaleza Orbital',  spec:'defensa',   req:['escudo_energetico'],turns:12,bonus:{poder:+20,estabilidad:+15},desc:'Defensa desde el espacio', unlocks:[]},
-  // Cultura
-  gran_arte:     {icon:'🎨',name:'Gran Arte Imperial',    spec:'cultura',   req:[],        turns:5,  bonus:{estabilidad:+15},       desc:'La belleza une al pueblo',                 unlocks:['filosofia_avanzada','propaganda_cultural']},
-  filosofia_avanzada:{icon:'📚',name:'Filosofía Avanzada',spec:'cultura',   req:['gran_arte'],turns:8,bonus:{estabilidad:+18,tecnologia:+8},desc:'El pensamiento eleva la civilización',unlocks:['etica_galáctica']},
-  propaganda_cultural:{icon:'📢',name:'Propaganda Cultural',spec:'cultura', req:['gran_arte'],turns:6,bonus:{estabilidad:+12,poder:+8},desc:'La cultura al servicio del poder',    unlocks:[]},
-  etica_galactica:{icon:'⚖️',name:'Ética Galáctica',     spec:'cultura',   req:['filosofia_avanzada'],turns:10,bonus:{estabilidad:+20,poder:+5},desc:'Código moral para civilizaciones estelares',unlocks:[]},
-  // Comercio
-  rutas_comerciales:{icon:'🛤️',name:'Rutas Comerciales', spec:'comercio',  req:[],        turns:5,  bonus:{estabilidad:+8,tecnologia:+8},desc:'Redes de intercambio eficientes',   unlocks:['banco_imperial','mercado_negro']},
-  banco_imperial:{icon:'🏦',name:'Banco Imperial',        spec:'comercio',  req:['rutas_comerciales'],turns:8,bonus:{tecnologia:+12,estabilidad:+12},desc:'Control del flujo económico',unlocks:['moneda_galactica']},
-  mercado_negro:  {icon:'🕵️',name:'Mercado Negro',        spec:'comercio',  req:['rutas_comerciales'],turns:6,bonus:{poder:+15,tecnologia:+5},desc:'Comercio fuera de la ley',       unlocks:[]},
-  moneda_galactica:{icon:'💎',name:'Moneda Galáctica',    spec:'comercio',  req:['banco_imperial'],turns:10,bonus:{tecnologia:+15,estabilidad:+15,poder:+10},desc:'Economía interestelar',unlocks:[]},
-};
 
-function startCityResearch(city){
-  if(!GS._cityResearch)GS._cityResearch=[];
-  const spec=city.spec;
-  // Find first available research for this spec not yet started/done
-  const done=GS._cityResearch.filter(function(r){return r.done;}).map(function(r){return r.id;});
-  const active=GS._cityResearch.filter(function(r){return!r.done;}).map(function(r){return r.id;});
-  const candidate=Object.entries(RESEARCH_TREE).find(function(e){
-    const r=e[1];
-    if(r.spec!==spec)return false;
-    if(done.includes(e[0])||active.includes(e[0]))return false;
-    // Check requirements met
-    return r.req.every(function(req){return done.includes(req);});
-  });
-  if(!candidate)return;
-  const [id,data]=candidate;
-  const era=GS.evoLine[GS.evoStageIndex];
-  const eraOrder=['tribal','agricola','ciudades','nacion','industrial','planetario','orbital','sistema','interestelar','galactico','trascendente'];
-  const eraIdx=Math.max(0,eraOrder.indexOf(era));
-  const baseTurns=data.turns;
-  const actualTurns=Math.max(3,Math.round(baseTurns*(1-eraIdx*0.05)));
-  GS._cityResearch.push({
-    id,icon:data.icon,name:data.name,desc:data.desc,
-    spec,bonus:data.bonus,unlocks:data.unlocks,
-    turnsTotal:actualTurns,turnsLeft:actualTurns,
-    startTurn:GS.turn,done:false,
-  });
-  addLog(GS.year,`🔬 Investigación iniciada: ${data.icon} ${data.name} (${actualTurns} turnos)`);
-  renderCitiesPanel();
-}
-
-function tickResearch(gs){
-  if(!gs._cityResearch||!gs._cityResearch.length)return;
-  gs._cityResearch.forEach(function(r){
-    if(r.done)return;
-    r.turnsLeft=Math.max(0,(r.turnsLeft||r.turnsTotal)-1);
-    if(r.turnsLeft<=0){
-      r.done=true;
-      // Apply bonus
-      if(r.bonus){
-        Object.entries(r.bonus).forEach(function(e){
-          gs[e[0]]=Math.min(500,Math.max(0,(gs[e[0]]||0)+e[1]));
-        });
-      }
-      addLog(gs.year,`✅ Investigación completada: ${r.icon} ${r.name}`);
-      gs.chronicle.push({year:gs.year,text:`✅ ${r.name}: ${r.desc}`});
-      showSaveIndicator(`✅ ${r.icon} ${r.name} completada`);
-      // Auto-start next research in the chain
-      const city=gs.cities&&gs.cities.find(function(c){return c.spec===r.spec;});
-      if(city) setTimeout(function(){startCityResearch(city);renderCitiesPanel();},100);
-    }
-  });
-}
-
-function accelerateResearch(researchId){
-  if(!GS||!GS._cityResearch)return;
-  const r=GS._cityResearch.find(function(x){return x.id===researchId&&!x.done;});
-  if(!r){return;}
-  const cost=15;
-  if(GS.tecnologia<cost){showSaveIndicator('Insuficiente Tecnología (−15)');return;}
-  GS.tecnologia=Math.max(0,GS.tecnologia-cost);
-  r.turnsLeft=Math.max(0,r.turnsLeft-3);
-  showSaveIndicator('⚡ Investigación acelerada −3 turnos');
-  renderCitiesPanel();
-  renderHUD();
-}
-
-/* ════════════════════════════════════════════════════════
-   BALANCE: Ensure every decision has real tradeoffs
-════════════════════════════════════════════════════════ */
-(function enforceTradeoffs(){
-  const ALL_STATS=['poder','estabilidad','tecnologia'];
-  EVENT_CATALOG.forEach(function(ev){
-    if(!ev.decisions)return;
-    ev.decisions.forEach(function(dec,idx){
-      const fx=dec.effects;
-      if(!fx)return;
-      const posStats=ALL_STATS.filter(function(s){return (fx[s]||0)>0;});
-      const negStats=ALL_STATS.filter(function(s){return (fx[s]||0)<0;});
-      const totalPos=ALL_STATS.reduce(function(a,s){return a+(fx[s]>0?fx[s]:0);},0);
-      
-      // If purely positive, add penalty to non-boosted stat
-      if(negStats.length===0&&totalPos>0){
-        const notBoosted=ALL_STATS.filter(function(s){return !(fx[s]>0);});
-        if(notBoosted.length>0){
-          const target=notBoosted[Math.floor(Math.random()*notBoosted.length)];
-          // Penalty scales with decision index: A=30%, B=45%, C=60%
-          const pctCost=[0.5,0.65,0.80][idx]||0.55;
-          fx[target]=-Math.max(3,Math.round(totalPos*pctCost));
-        }
-      }
-      
-      // Increase existing negatives by 20% if they seem too mild
-      negStats.forEach(function(s){
-        if(fx[s]>-3) fx[s]=Math.round(fx[s]*1.2);
-      });
-      
-      // Reduce positives by 10% in option A (the "safe" choice)
-      if(idx===0){
-        posStats.forEach(function(s){
-          fx[s]=Math.max(1,Math.round(fx[s]*0.9));
-        });
-      }
-    });
-  });
-  // Same for NEW_EVENTS
-  if(typeof NEW_EVENTS!=='undefined'){
-    NEW_EVENTS.forEach(function(ev){
-      if(!ev.decisions)return;
-      ev.decisions.forEach(function(dec,idx){
-        const fx=dec.effects;
-        if(!fx)return;
-        const posStats=ALL_STATS.filter(function(s){return(fx[s]||0)>0;});
-        const negStats=ALL_STATS.filter(function(s){return(fx[s]||0)<0;});
-        const totalPos=ALL_STATS.reduce(function(a,s){return a+(fx[s]>0?fx[s]:0);},0);
-        if(negStats.length===0&&totalPos>0){
-          const notBoosted=ALL_STATS.filter(function(s){return!(fx[s]>0);});
-          if(notBoosted.length>0){
-            const target=notBoosted[0];
-            const pctCost=[0.5,0.65,0.80][idx]||0.55;
-            fx[target]=-Math.max(3,Math.round(totalPos*pctCost));
-          }
-        }
-      });
-    });
-  }
-  console.log('[Balance] Tradeoffs enforced on all events');
-})();
